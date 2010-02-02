@@ -1,0 +1,15 @@
+See: http://www.benlumley.co.uk/2010/02/02/munin-plugins-to-graph-apache-virtual-hosts/
+
+Brief Description
+
+apache_vh_accesses
+
+Draws a stacked graph of accesses per second per virtual host, similar to the regular munin plugin’s apache accesses.
+
+apache_vh_volume
+
+Draws a stacked graph of bandwidth/network traffic per second per virtual host, similar to the regular munin plugin’s apache volume.
+
+apache_vh_errors
+
+Draws a line graph of the apache error rate per request per virtual host. It calculates the “access rate” using the same code as the access rate plugin, then applies this method to the error log as well to get the number of errors per second. It then divides the errors per second by the accesses per second, aiming to flatten the graph, rather than have it peak and trough with daily traffic cycles. Yet to see how effective this is, but aside from a measure of errors, hoping it will help spot new problems/bugs, I’m expecting one day to see a spikes in an otherwise steady line.
