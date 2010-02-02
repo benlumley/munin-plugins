@@ -1,0 +1,149 @@
+#!/usr/bin/php
+<?php
+/*
+ Copyright (c) 2009 Ben Lumley (@benlumley)
+
+ Permission is hereby granted, free of charge, to any person
+ obtaining a copy of this software and associated documentation
+ files (the "Software"), to deal in the Software without
+ restriction, including without limitation the rights to use,
+ copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following
+ conditions:
+
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+// path where the apache logs are to be found
+define('LOG_PATH', "/var/log/apache2/");
+
+// number of lines to start with in the access log - improving this may reduce the number of times it checks
+define('ACCESS_LINES', 1000);
+
+// number of lines to start with in the error log
+define('ERROR_LINES', 100);
+
+// $excludes is an array of urls to exclude. use it to exclude testing sites.
+$excludes = array();
+$excludes[]="|^.dev.*$|i";
+
+// $includes is a list of sites that should be included, regardless of the above regex.
+$includes = array();
+$includes[] = "development.com";
+
+exec(sprintf("find %s -iname *_access.log", LOG_PATH), $files);
+
+foreach ($files as $key=>$file) {
+	 foreach ($includes as $include) {
+		 if (strpos($file, $include)) {
+		   continue 2;
+	   }
+	 }
+   foreach ($excludes as $exclude) {
+      if (preg_match($exclude, $file)) {
+         unset($files[$key]);
+         continue 2;
+      }
+   }
+}
+
+if (isset($argv[1]) && $argv[1]=='config') {
+   foreach ($files as $file) {
+      $sitename = sitename($file);
+      #echo hashname($file) . "_error.label $sitename (err/sec)\n";
+      echo hashname($file) . "_error_req.label $sitename\n";
+
+   }
+   echo "graph_category apache\n";
+   echo "graph_title Apache Errors By Vhost\n";
+   echo "graph_vlabel Errors per request\n";
+   echo "graph_info This graph shows errors per request by virtual host\n";
+} else {
+   foreach ($files as $file) {
+      $access_rate = calculate_rate($file, ACCESS_LINES);
+      $error_rate = calculate_rate(str_replace('access', 'error', $file), ERROR_LINES);
+#     echo hashname($file) . "_error.value " . $error_rate . "\n";
+      if ($error_rate == 0 || $access_rate == 0) {
+         $err_req = 0;
+      } else {
+         $err_req = round($error_rate/$access_rate, 4);
+      }
+      echo hashname($file) . "_error_req.value $err_req\n";
+   }
+}
+
+function calculate_rate($file, $num_lines) {
+  $ago = get_time($file, $num_lines);
+  $increment = floor($num_lines/2);
+  $its == 0;
+  while ($ago < 270 || $ago > 330) {
+    $op == false;
+    if ($ago < 270) {
+      if ($opp == "sub") {
+        $increment = floor($increment/2);
+      }
+      $num_lines = $num_lines + $increment;
+      $opp = "add";
+    } elseif ($ago > 330) {
+      if ($opp == "add") {
+        $increment = floor($increment/2);
+      }
+      $num_lines = max(1, $num_lines - $increment);
+      $opp = "sub";
+    }
+    $ago = get_time($file, $num_lines);
+    if ($num_lines == 1 && $ago > 330) {
+      return 0.000;
+    }
+    $its++;
+    if ($its == 10) {
+      break;
+    }
+  }
+  return round($num_lines/$ago, 4);
+}
+
+function get_time($file, $num_lines) {
+  $string = exec(sprintf("tail -n %s %s 2>/dev/null | head -n 1", $num_lines, $file));
+  $checkstring =  exec(sprintf("head -n 1 %s 2>/dev/null", $file));
+  
+  // if we get to log start, use size of log as num_lines, to minimise skew.
+  $checkstring =  exec(sprintf("head -n 1 %s 2>/dev/null", $file));
+  if ($checkstring == $string) {
+    $seen_lines =  exec(sprintf("wc -l %s 2>/dev/null", $file));
+    if (file_exists($file . ".1")) {
+      $string = exec(sprintf("tail -n %s %s.0 2>/dev/null | head -n 1", ($num_lines - $seen_lines), $file));
+    } else {
+      $num_lines = $seen_lines;
+    }
+  }
+  
+  preg_match('|^([^\[]*)?\[([^]]+)\].*|', $string, $matches);
+  if (!isset($matches[2])) {
+    $time = time();
+  } else {
+    $time = strtotime($matches[2]);
+  }
+  $ago = time() - $time;
+  return $ago;
+}
+
+function hashname($file) {
+   return 'f_' . preg_replace('|[^a-z0-9]|i', '', sitename($file));
+}
+
+function sitename($file) {
+   list($sitename)=explode("_", basename($file));
+   return $sitename;
+}
