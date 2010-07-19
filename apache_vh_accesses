@@ -45,17 +45,17 @@ $includes[] = "development.com";
 exec(sprintf("find %s -iname *_access.log", LOG_PATH), $files);
 
 foreach ($files as $key=>$file) {
-	 foreach ($includes as $include) {
-		 if (strpos($file, $include)) {
-		   continue 2;
-	   }
-	 }
-   foreach ($excludes as $exclude) {
-      if (preg_match($exclude, $file)) {
-         unset($files[$key]);
-         continue 2;
-      }
-   }
+  foreach ($includes as $include) {
+    if (strpos($file, $include)) {
+      continue 2;
+    }
+  }
+  foreach ($excludes as $exclude) {
+    if (preg_match($exclude, $file)) {
+      unset($files[$key]);
+      continue 2;
+    }
+  }
 }
 
 if (isset($argv[1]) && $argv[1]=='config') {
@@ -80,9 +80,9 @@ if (isset($argv[1]) && $argv[1]=='config') {
 function calculate_rate($file, $num_lines) {
   $ago = get_time($file, $num_lines);
   $increment = floor($num_lines/2);
-  $its == 0;
+  $its = 0;
+	$opp = false;
   while ($ago < 270 || $ago > 330) {
-    $op == false;
     if ($ago < 270) {
       if ($opp == "sub") {
         $increment = floor($increment/2);
@@ -117,7 +117,7 @@ function get_time($file, $num_lines) {
   if ($checkstring == $string) {
     $seen_lines =  exec(sprintf("wc -l %s 2>/dev/null", $file));
     if (file_exists($file . ".1")) {
-      $string = exec(sprintf("tail -n %s %s.0 2>/dev/null | head -n 1", ($num_lines - $seen_lines), $file));
+      $string = exec(sprintf("tail -n %s %s.1 2>/dev/null | head -n 1", ($num_lines - $seen_lines), $file));
     } else {
       $num_lines = $seen_lines;
     }
